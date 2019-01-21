@@ -13,13 +13,17 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+/**
+ * Crypto routines that are identical to the Android program. This allows a quicker way to iterate on the
+ * algorithms and also the development of standalone Java (yikes!) program to encrypt and decrypt files.
+ *
+ * Some day I would love to write this in plain C.
+ */
 class CryptoRoutines {
-    private static final String TAG = "CryptoRoutines";
-
     /** AES Encryption with Block Cipher and PKCS5 padding */
     static final String AES_CBC_PKCS5_PADDING = "AES/CBC/PKCS5PADDING";
 
-    static public final Charset UTF_8 = Charset.forName("UTF-8");
+    static private final Charset UTF_8 = Charset.forName("UTF-8");
 
     /**
      * Decrypt a byte array using AES with CBC, PKC5_PADDING.
@@ -35,10 +39,15 @@ class CryptoRoutines {
         IvParameterSpec ivspec = new IvParameterSpec(iv);
         cipher.init(Cipher.DECRYPT_MODE, key, ivspec);
         byte[] plainText = cipher.doFinal(cipherText);
-        System.out.printf("text: " + bToS(plainText) + ", cipherText: " + bToS(cipherText));
+        System.out.println("text: " + bToS(plainText) + ", cipherText: " + bToS(cipherText));
         return plainText;
     }
 
+    /**
+     * Holder for the text (ciphertext or plaintext) and the initialization vector.
+     * Android has the Pair class, which can be used to hold these two together. Rather than add a Collections object,
+     * I'm just lumping them together.
+     */
     static class TextVector {
         byte[] text;
         byte[] initializationVector;
@@ -62,8 +71,8 @@ class CryptoRoutines {
         byte[] cipherText = cipher.doFinal(plainText);
         key.getEncoded();
         byte[] iv = cipher.getIV();
-        System.out.printf("text: " + bToS(plainText) + ", cipherText: " + bToS(cipherText));
-        System.out.printf("IV: " + bToS(iv));
+        System.out.println("text: " + bToS(plainText) + ", cipherText: " + bToS(cipherText));
+        System.out.println("IV: " + bToS(iv));
         v.text = cipherText;
         v.initializationVector = iv;
         return v;
@@ -99,7 +108,7 @@ class CryptoRoutines {
         byte[] buffer = new byte[fourMegs];
         boolean couldCreate = toWrite.createNewFile();
         if (!couldCreate) {
-            System.out.printf("Could not create file " + plainPath);
+            System.out.println("Could not create file " + plainPath);
             return false;
         }
         BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(toWrite));
@@ -108,7 +117,7 @@ class CryptoRoutines {
             out.write(buffer, 0, numBytes);
         }
         out.close();
-        System.out.printf("Wrote text: " + plainPath);
+        System.out.println("Wrote text: " + plainPath);
         return true;
     }
 
@@ -136,7 +145,7 @@ class CryptoRoutines {
 
         boolean couldCreate = toWrite.createNewFile();
         if (!couldCreate) {
-            System.out.printf("Could not create the new file " + cipherPath);
+            System.out.println("Could not create the new file " + cipherPath);
             return null;
         }
         BufferedInputStream bis = new BufferedInputStream(fis);
@@ -146,11 +155,11 @@ class CryptoRoutines {
 
         int numBytes;
         while ((numBytes = bis.read(buffer)) > 0) {
-            System.out.printf("encrypt read " + numBytes + " bytes.");
+            System.out.println("encrypt read " + numBytes + " bytes.");
             cos.write(buffer, 0, numBytes);
         }
         cos.close();
-        System.out.printf("Wrote text: " + cipherPath);
+        System.out.println("Wrote text: " + cipherPath);
         return iv;
     }
 
@@ -183,7 +192,8 @@ class CryptoRoutines {
         try {
             key = KeyGenerator.getInstance("AES").generateKey();
         } catch (NoSuchAlgorithmException e) {
-            System.out.printf("Key creation failed!", e);
+            System.out.println("Key creation failed! ");
+            e.printStackTrace();
         }
         return key;
     }
@@ -211,7 +221,7 @@ class CryptoRoutines {
             SecretKey skey = keyFromString(keyHardcode);
 
             String key = bToS(skey.getEncoded());
-            System.out.printf("I generated this crazy long key: " + key);
+            System.out.println("I generated this crazy long key: " + key);
             String expected = "This is a long message";
             byte[] testMessage = expected.getBytes(UTF_8);
             TextVector m = encrypt(testMessage, skey);
@@ -219,19 +229,19 @@ class CryptoRoutines {
             byte[] cipherText = m.text;
             byte[] iv = m.initializationVector;
             // Let's print that out, and see what we can do with it.
-            System.out.printf("I got cipherText " + bToS(cipherText));
+            System.out.println("I got cipherText " + bToS(cipherText));
 
             // And decrypt
             byte[] plainText = decrypt(cipherText, iv, skey);
             // And let's print that out.
             String observed = new String(plainText, UTF_8);
-            System.out.printf("I got this message back: " + observed);
+            System.out.println("I got this message back: " + observed);
 
             if (expected.matches(observed)) {
-                System.out.printf("Test PASSED");
+                System.out.println("Test PASSED");
                 return true;
             } else {
-                System.out.printf("Test Failed!");
+                System.out.println("Test Failed!");
             }
 
         } catch (Exception e) {
@@ -251,6 +261,7 @@ class CryptoRoutines {
         try {
             currentPath = new File(".").getCanonicalPath();
         } catch (IOException e) {
+            System.out.println("Failed to get canonical path for current directory.");
             e.printStackTrace();
             return false;
         }
@@ -260,7 +271,7 @@ class CryptoRoutines {
             SecretKey skey = keyFromString(keyHardcode);
 
             String key = bToS(skey.getEncoded());
-            System.out.printf("I generated this crazy long key: " + key);
+            System.out.println("I generated this crazy long key: " + key);
             String expected = "This is a long message";
             String plainPath = currentPath.concat(File.pathSeparator).concat("plain.txt");
             String cipherPath = currentPath.concat(File.pathSeparator).concat("cipher.txt");
@@ -271,21 +282,22 @@ class CryptoRoutines {
 
             byte[] iv = encrypt(plainPath, skey, cipherPath);
             if (iv == null) {
-                System.out.printf("Encryption failed");
+                System.out.println("Encryption failed");
                 return false;
             }
-            System.out.printf("Encryption succeeded. IV = " + bToS(iv));
+            System.out.println("Encryption succeeded. IV = " + bToS(iv));
 
             // Try to decrypt.
             String testPlainPath = currentPath.concat(File.pathSeparator).concat("test.txt");
             boolean result = decrypt(cipherPath, iv, skey, testPlainPath);
             if (!result) {
-                System.out.printf("Decryption failed for  " + testPlainPath);
+                System.out.println("Decryption failed for  " + testPlainPath);
                 return false;
             }
             // TODO: Check here to see if the file has some text in there.
             return true;
         } catch (Exception e) {
+            System.out.println("Decryption failed. Error follows:");
             e.printStackTrace();
         }
         // And now delete the file.
