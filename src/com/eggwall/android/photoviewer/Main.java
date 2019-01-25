@@ -2,9 +2,11 @@ package com.eggwall.android.photoviewer;
 
 import javax.crypto.SecretKey;
 
-import static com.eggwall.android.photoviewer.CryptoRoutines.STob;
-import static com.eggwall.android.photoviewer.CryptoRoutines.bToS;
-import static com.eggwall.android.photoviewer.CryptoRoutines.keyFromString;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
+import static com.eggwall.android.photoviewer.CryptoRoutines.*;
 
 public class Main {
     public static final int START = 0;
@@ -12,9 +14,19 @@ public class Main {
         // -g: Generate a key.
         if (args[START].startsWith("-g") || args[START].startsWith("--gen")){
             SecretKey k = CryptoRoutines.generateKey();
-            System.out.println("The key is: " + bToS(k.getEncoded()));
+            String keyString = bToS(k.getEncoded());
+            System.out.println("The key is: " + keyString);
+
+            // And a unique uuid corresponding to this key for tagging downloads in the future encrypted with this key.
+            String key_uuid = getUuid();
+            System.out.println("And a UUID corresponding to this key: " + key_uuid);
+
+            String encoded = "&key=" + URLEncoder.encode(keyString, StandardCharsets.UTF_8)
+                    + "&keyid=" + key_uuid;
+            System.out.println("As URL Param(" + encoded + ")");
             return;
         }
+
         // -h: Help string.
         if (args[START].startsWith("-h") || args[START].startsWith("--help")){
             System.out.println("Syntax: main "
@@ -35,8 +47,15 @@ public class Main {
             try {
                 byte[] iv = CryptoRoutines.encrypt(plainTextFile, key, cipherFile);
 
+                if (iv == null) {
+                    // Something went wrong, so bail here.
+                    return;
+                }
                 // Print the initial vector
-                System.out.println("\nInitialization Vector = " + bToS(iv));
+                String initializationVector = bToS(iv);
+                System.out.println("Initialization Vector = " + initializationVector);
+                String encoded = "&iv=" + URLEncoder.encode(initializationVector, StandardCharsets.UTF_8);
+                System.out.println("As URL Param(" + encoded + ")");
             } catch (Exception e) {
                 e.printStackTrace();
             }

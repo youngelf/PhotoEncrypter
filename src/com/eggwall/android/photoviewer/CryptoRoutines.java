@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.UUID;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -302,5 +303,9 @@ class CryptoRoutines {
         }
         // And now delete the file.
         return false;
+    }
+
+    public static String getUuid() {
+        return UUID.randomUUID().toString();
     }
 }
